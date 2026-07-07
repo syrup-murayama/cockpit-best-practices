@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cockpit Best Practices"
+  short_description: "AGI Cockpit workflow operating policy"
+  default_prompt: "Use $cockpit-best-practices to review AGI Cockpit task cleanup and delegation decisions."
