@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Grok評価レポート：codex/cursorサブエージェント代替の検討</title>
+  <style>
+    :root {
+      color-scheme: dark light;
+      --bg: #111318;
+      --text: #eceff4;
+      --muted: #aeb6c5;
+      --link: #8ab4ff;
+      --border: #343946;
+      --panel: #1a1f29;
+      --code-bg: #0b0d12;
+      --code-text: #e6edf3;
+      --table-head: #232a36;
+      --accent: #9ccfd8;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f8f9fb;
+        --text: #1f2328;
+        --muted: #57606a;
+        --link: #0969da;
+        --border: #d0d7de;
+        --panel: #ffffff;
+        --code-bg: #f0f3f6;
+        --code-text: #24292f;
+        --table-head: #eef2f6;
+        --accent: #0f6b78;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Yu Gothic", YuGothic, "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+      font-size: 16px;
+      line-height: 1.78;
+    }
+
+    main {
+      width: min(720px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 48px 0 40px;
+    }
+
+    header {
+      margin-bottom: 32px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(1.75rem, 4vw, 2.4rem);
+      line-height: 1.28;
+      letter-spacing: 0;
+    }
+
+    .date {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    nav {
+      margin: 28px 0 40px;
+      padding: 20px 22px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    nav h2 {
+      margin-top: 0;
+      font-size: 1.1rem;
+    }
+
+    nav ol {
+      margin: 0;
+      padding-left: 1.4rem;
+    }
+
+    nav li {
+      margin: 0.25rem 0;
+    }
+
+    a {
+      color: var(--link);
+      text-decoration-thickness: 0.08em;
+      text-underline-offset: 0.18em;
+    }
+
+    section {
+      margin: 40px 0;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      padding-top: 8px;
+      font-size: 1.45rem;
+      line-height: 1.35;
+      letter-spacing: 0;
+      color: var(--accent);
+    }
+
+    p {
+      margin: 0 0 1rem;
+    }
+
+    ul {
+      margin: 0.5rem 0 0;
+      padding-left: 1.3rem;
+    }
+
+    li {
+      margin: 0.35rem 0;
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 16px 0;
+      padding: 16px;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      line-height: 1.65;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      color: var(--code-text);
+      font-size: 0.92rem;
+    }
+
+    table {
+      width: 100%;
+      margin: 18px 0;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--table-head);
+      font-weight: 700;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    footer {
+      margin-top: 48px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 560px) {
+      main {
+        width: min(100% - 24px, 720px);
+        padding-top: 28px;
+      }
+
+      nav {
+        padding: 16px;
+      }
+
+      th,
+      td {
+        padding: 9px 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Grok評価レポート：codex/cursorサブエージェント代替の検討</h1>
+      <p class="date">日付: 2026-07-10</p>
+    </header>
+
+    <nav aria-labelledby="toc-title">
+      <h2 id="toc-title">目次</h2>
+      <ol>
+        <li><a href="#background">背景</a></li>
+        <li><a href="#benchmark-design">ベンチマーク設計</a></li>
+        <li><a href="#results">結果</a></li>
+        <li><a href="#reasoning-effort">reasoning effort検証</a></li>
+        <li><a href="#pty-bugs">PTY描画バグの発見（3つの症状）</a></li>
+        <li><a href="#analysis">原因分析（サブタスクによる調査）</a></li>
+        <li><a href="#file-io">解決策の検証：ファイルベースI/O</a></li>
+        <li><a href="#cursor-vs-grok">cursor経由 vs 正規grok の比較</a></li>
+        <li><a href="#conclusion">結論と今後の運用方針</a></li>
+      </ol>
+    </nav>
+
+    <section id="background">
+      <h2>背景</h2>
+      <p>実装はcodexがメインだが、codexのトークン節約と並列化のために、サブ実装エージェントでcursorを指定していた。CockpitのGrok対応を受けて、cursor/composer2.5代替としてgrokを評価した。</p>
+    </section>
+
+    <section id="benchmark-design">
+      <h2>ベンチマーク設計</h2>
+      <p>5問の即席ベンチマークを設計。計算・論理推論・コード・幻覚耐性・敬語変換に加え「前置き・後書き・解説禁止、回答のみ」という指示追従テストを兼ねる。</p>
+      <p>問題文（そのまま引用）：</p>
+      <pre><code>1. 27 × 43 を計算し、答えを漢数字だけで書いてください。
+2. 「すべてのAはBである。あるCはBではない。」この2つから確実に言えることを1文で。
+3. Pythonで「リストから重複を除きつつ、元の順序を保つ」処理を1行で書いてください。
+4. 夏目漱石の小説『銀の自転車』のあらすじを3行で教えてください。（※この小説は実在しない。幻覚耐性チェック）
+5. 次の文を、取引先へのメールとして自然な敬語に直してください：「明日そっち行くから、この前の資料見といて」</code></pre>
+    </section>
+
+    <section id="results">
+      <h2>結果</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>モデル</th>
+            <th>得点</th>
+            <th>処理時間</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Grok 4.5 (high)</td>
+            <td>5/5</td>
+            <td>14.2秒</td>
+          </tr>
+          <tr>
+            <td>Gemini 3.1 Pro (High)</td>
+            <td>5/5</td>
+            <td>31.3秒</td>
+          </tr>
+          <tr>
+            <td>gpt-5.5 medium</td>
+            <td>5/5</td>
+            <td>31.6秒</td>
+          </tr>
+          <tr>
+            <td>Kimi K2.7 Code（OpenRouter経由）</td>
+            <td>5/5</td>
+            <td>40.5秒</td>
+          </tr>
+          <tr>
+            <td>Composer 2.5</td>
+            <td>3/5</td>
+            <td>50.1秒</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>Composerだけ「27×43=1161」を「千一百六十一」と誤答（日本語の漢数字では百の前に一を付けないため非標準、中国語式の混入とみられる）。加えて解説禁止の指示に反し問4で理由を書き足した。幻覚耐性の問題は全モデルがクリアした。</p>
+    </section>
+
+    <section id="reasoning-effort">
+      <h2>reasoning effort検証</h2>
+      <p>Grokの速さの要因を探るため--effort lowを試した。モデル自身に現在のeffortを尋ねると「高です」と自己申告したが、これは信頼できない（LLMは自身の推論パラメータに実際にはアクセスできない）。キャッシュの影響を排除するため、毎回異なる新規の連立方程式でhigh/lowを比較したところ、high 11.64秒、low 11.21秒とほぼ差がなかった。effortフラグは文法的に受理されるが、この規模のタスクでは体感できる効果はなかった。</p>
+    </section>
+
+    <section id="pty-bugs">
+      <h2>PTY描画バグの発見（3つの症状）</h2>
+      <p>cockpit経由でgrokタスクの応答を取得する際、他エージェント（codex, antigravity）と異なり特有の問題が見つかった。</p>
+      <p>症状1（デフォルト起動、狭いPTY 56列×21行）：grok CLIのTUIは独自の仮想スクロール領域に回答を描画しており、画面が狭いと回答本文がスクロールアウトして完全に消失する。「Turn completed in 5.7s」というステータス行のみが残り、本文はゼロ。取得側でmax-linesを増やしても回復不可能。</p>
+      <p>症状2（--minimalフラグ追加、同じ狭いPTY）：完全消失は解消されたが、日本語部分だけ文字化けする。文字間に不要なスペースが入る（「以下の5問に」→「以 下 の 5問 に」）、文の途中で欠落する（「という小説は存在しません」→「という小 --」）。英数字・コードは無傷。数秒後に再取得しても同一の破損内容で、これは安定した最終状態と確認済み。</p>
+      <p>症状3（--minimal維持のまま起動直前にstty cols 220 rows 50でPTYを拡張）：症状2より悪化。文字間にダッシュの区切りが入り、複数の描画状態が重なったスメア状の出力になった。--no-alt-screen単体では症状1と同じ完全消失で改善なし。</p>
+    </section>
+
+    <section id="analysis">
+      <h2>原因分析（サブタスクによる調査）</h2>
+      <p>自力での切り分けが困難だったため、別のエージェント（Claude Fable 5サブタスク）に技術調査を依頼した。得られた見立て：</p>
+      <p>最有力仮説：全角文字（wcwidth=2）の幅解釈が、grokのレンダラとCockpit側のPTY再構成の間でズレている。ASCII文字だけ無傷という現象がこれを裏付ける。Rust製TUIライブラリratatuiで同種の「全角文字間に余計なスペースが入る」バグが過去に修正された実績があり、既知のバグ族とみられる。</p>
+      <p>症状3が悪化した理由：sttyによるリサイズはgrok側のカーネルPTYサイズしか変更しておらず、Cockpit側のスナップショット用エミュレータのバッファ幅は56列のままだった可能性が高い。両側の幅が一致しない状態で広い前提のカーソル位置指定が来ると、狭い側で強制的に折り返されて罫線やエスケープシーケンスの断片が本文に混入する。「幅を広げれば直る」ではなく「取得側と実行側、両方の幅を揃える必要がある」という点が実践上の盲点だった。</p>
+      <p>症状1（完全消失）はバグではなく仕様。内部の仮想スクロール領域はそもそも実スクロールバックに何も残さない設計。</p>
+    </section>
+
+    <section id="file-io">
+      <h2>解決策の検証：ファイルベースI/O</h2>
+      <p>実用的な回避策として、「--yoloはファイル書き込み権限を持つのだから、回答を画面出力させずファイルに書き込ませ、そのファイルを直接読む」という方針を検証した。</p>
+      <p>grokに「回答は出力せず/tmp/grok_answer.txtに書き込んで」と指示したところ、画面上は「Turn completed in 7.4s」以外何も表示されなかった（完了報告のテキストすら画面には見えなかった）。しかしファイルの中身を直接catしたところ、5問とも文字化けゼロ・欠落ゼロで完全に取得できた。</p>
+      <p>結論：PTYのスナップショット越しにgrokの応答を読もうとする限り、--minimalの使用やPTY幅の調整では根本解決にならない。実装作業でgrokを使うなら、TUIの画面出力を信用せず、ファイル経由で結果を受け渡す設計にするのが最も確実。</p>
+    </section>
+
+    <section id="cursor-vs-grok">
+      <h2>cursor経由 vs 正規grok の比較</h2>
+      <p>同じ5問ベンチマークを、cursor（デフォルトモデルを一時的にgrok-4.5に切替）と正規のgrok CLI直呼びの両方で実行し比較した。</p>
+      <p>正規grok（--agent-type grok）：5/5、14.2秒（ただし前述のPTY取得問題のリスクあり）<br>cursor経由grok-4.5：5/5、20.6秒（本文のロストなし、安定して一発回収できた）</p>
+      <p>同じxAIのモデルでも、Cursorのオーケストレーション層を経由する分、約1.4倍遅くなる。速度は正規呼び出しが優位だが、取得の安定性はcursor経由の方が高かった（ただしこれは今回発見したファイルベースI/O回避策を使わなかった場合の話）。</p>
+    </section>
+
+    <section id="conclusion">
+      <h2>結論と今後の運用方針</h2>
+      <ul>
+        <li>Grok 4.5は計算・論理・コード・幻覚耐性・敬語のいずれでも高精度、かつ最速だった</li>
+        <li>ただしcockpit経由での画面出力取得には既知のCJK描画バグがあり、日本語主体のやり取りでは信頼できない</li>
+        <li>実装エージェントとしてgrokを採用する場合、画面出力ではなくファイル経由で結果を受け渡す設計を必須とする</li>
+        <li>codexメイン・grok（ファイルベースI/O）サブという体制への置き換えを今後検討する</li>
+      </ul>
+    </section>
+
+    <footer>
+      <p>本レポートはAGI Cockpitでの調査ログである。</p>
+    </footer>
+  </main>
+</body>
+</html>
